@@ -21,23 +21,38 @@ class Race {
   }
 
   get winningTimes() {
-    const winningTimes = [];
-    for (let buttonHeldTime = 0; buttonHeldTime <= this.time; buttonHeldTime++) {
+    // Get shortest button hold that allows a win
+    let shortestTime = 0;
+    for(let buttonHeldTime = 0; !shortestTime; buttonHeldTime++) {
       const speed = buttonHeldTime;
       const timeRemaining = this.time - buttonHeldTime;
       const distanceTraveled = speed * timeRemaining;
-      distanceTraveled > this.record ? winningTimes.push({ buttonHeldTime, speed, distanceTraveled }) : null;
+      shortestTime = distanceTraveled > this.record ? buttonHeldTime : 0;
     }
-    return winningTimes;
+    let longestTime = 0;
+    for(let buttonHeldTime = this.time; !longestTime; buttonHeldTime--) {
+      const speed = buttonHeldTime;
+      const timeRemaining = this.time - buttonHeldTime;
+      const distanceTraveled = speed * timeRemaining;
+      longestTime = distanceTraveled > this.record ? buttonHeldTime : 0;
+    }
+    return longestTime - shortestTime + 1;
   }
 }
 
 const races = Array.from(Array(raceTimes.length), (_, index) => new Race(index));
 
 const total = races.reduce((total, currentRace, index) => {
-  const numberOfWinningTimes = currentRace.winningTimes.length;
+  const numberOfWinningTimes = currentRace.winningTimes;
   index === 0 ? total += numberOfWinningTimes : total *= numberOfWinningTimes;
   return total;
 }, 0)
 
 console.log('Part 1 - Total Winning Times Multiplied:', total);
+
+// Part 2
+raceTimes = [Number(raceTimes.join(''))];
+recordDistances= [Number(recordDistances.join(''))];
+
+const race = new Race(0);
+console.log('Part 2 - Number of way to win big race:', race.winningTimes);
