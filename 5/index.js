@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const input = fs.readFileSync(path.join(__dirname, 'example-input.txt'), 'utf-8');
+const input = fs.readFileSync(path.join(__dirname, 'input.txt'), 'utf-8');
 
 // Create Seeds and Map Values
 
@@ -48,7 +48,7 @@ const almanac = input.split(/[\n]{2}/)
               const [destinationStart, sourceStart, range] = value.split(/\s+/).map(Number);
               return { 
                 destinationStart,
-                destinationEnd: destinationStart + range,
+                destinationEnd: destinationStart + range -1,
                 sourceStart,
                 sourceEnd: sourceStart + range - 1,
                 range };
@@ -60,6 +60,9 @@ const almanac = input.split(/[\n]{2}/)
 
 let givenSeedNumbers = almanac.seeds;
 delete almanac.seeds;
+Object.keys(almanac).forEach((section) => {
+  almanac[section].sort((a, b) => a.sourceStart - b.sourceStart);
+})
 
 // Part One
 
@@ -68,7 +71,6 @@ const seeds = givenSeedNumbers.map(seed => new Seed(seed));
 console.log('Part 1 - Lowest Location Number:', Math.min(...seeds.map((seed) => seed.location)));
 
 // Part Two
-
 
 class Range {
   constructor(type, range) {
@@ -80,22 +82,30 @@ class Range {
 
   convertTo(desiredType) {
     let processedValues = 0;
+    const currentSourceValue = () => this.start + processedValues;
     const allValuesProcessed = () => processedValues === this.length;
-    const numberOfValuesRemaining = () => this.length - processedValues;
+    const numberOfUnprocessedValues = () => this.length - processedValues;
     const ranges = [];
 
     while(!allValuesProcessed()) {
-      const almanacEntry = almanac['seed-to-soil'].find((entry) => {
+      const almanacEntry = almanac[`${this.type}-to-${desiredType}`].find((entry) => {
         return entry.sourceStart <= (this.start + processedValues + 1) && entry.sourceEnd >= (this.start + processedValues + 1);
       });
       if (almanacEntry) {
-        const remainingEntries = almanacEntry.sourceEnd - (this.start + processedValues);
-        const newRangeLength = remainingEntries >= this.length ? this.length : remainingEntries;
-        ranges.push(new Range('soil', { start: almanacEntry.destinationStart + processedValues, length: newRangeLength }));
+        const remainingEntries = almanacEntry.sourceEnd - currentSourceValue() + 1;
+        const newRangeLength = remainingEntries >= numberOfUnprocessedValues() ? numberOfUnprocessedValues() : remainingEntries;
+        const startDiff = currentSourceValue() - almanacEntry.sourceStart;
+        const newRange = new Range(desiredType, { start: almanacEntry.destinationStart + startDiff, length: newRangeLength })
+        ranges.push(newRange);
         processedValues += newRangeLength;
       } else {
-        ranges.push(new Range('soil', { start: this.start + processedValues, length: 1 }))
-        processedValues++;
+        const nextAlmanacEntry = almanac[`${this.type}-to-${desiredType}`]
+          .find((entry) => {
+            return entry.sourceStart >= currentSourceValue();
+        });
+        const newRange = nextAlmanacEntry ? nextAlmanacEntry.sourceStart - currentSourceValue() : numberOfUnprocessedValues();
+        ranges.push(new Range(desiredType, { start: this.start + processedValues, length: newRange }))
+        processedValues += newRange;
       }
     }
     return ranges;
@@ -109,6 +119,21 @@ for (let index = 0; index < givenSeedNumbers.length; index += 2) {
   seedRanges.push(new Range('seed', { start, length }));
 }
 
-console.log(seedRanges);
+function seedRangesToLocations(seedRanges) {
+  const mappings = ['soil', 'fertilizer', 'water', 'light', 'temperature', 'humidity', 'location'];
+  return seedRanges.map((range) => {
+    let currentArray = [range];
+    let iteration = 0;
+    while (currentArray[0].type !== 'location') {
+      currentArray = currentArray.reduce((allItems, item) => {
+        allItems.push(...item.convertTo(mappings[iteration]));
+        return allItems;
+      }, []);
+      iteration++;
+    }
+    return currentArray
+  })
+}
 
-console.log(seedRanges[0].convertTo());
+const locationsBySeed = seedRangesToLocations(seedRanges);
+console.log('Part 2 - Lowest Location Range:', locationsBySeed.flat().sort((a, b) => a.start - b.start)[0]);
